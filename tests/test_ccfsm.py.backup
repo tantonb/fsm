@@ -1,0 +1,116 @@
+"""Test kincode.ccfsm"""
+
+import json
+from unittest import mock
+
+import pytest
+import voluptuous as vol
+
+from fsm import (
+    CC_FSM_SCHEMA,
+    CC_TRANSITION_SCHEMA,
+    CodeChallengeFsm,
+    FsmError,
+    get_fsm_from_json,
+    get_fsm_from_json_file,
+)
+
+
+def test_transition_schema_validation():
+    invalids = [
+        None,
+        "invalid type",
+        {"missing": "states"},
+        {"action": "action", "missing": "end state"},
+    ]
+
+    for data in invalids:
+        with pytest.raises(vol.MultipleInvalid):
+            CC_TRANSITION_SCHEMA(data)
+
+
+def test_fsm_schema_validation():
+    invalids = [
+        None,
+        {},
+        {"start": None},
+        {"start": ""},
+        {"start": 0},
+        {"start": "missing transitions"},
+    ]
+
+    for data in invalids:
+        with pytest.raises(vol.MultipleInvalid):
+            CC_FSM_SCHEMA(data)
+
+
+@pytest.fixture(name="fsm_json")
+def fixture_fsm_json():
+    return """
+        {
+            "start": "state_a",
+            "transitions": [
+                {
+                    "currentState": "state_a",
+                    "nextState": "state_b",
+                    "actionName": "action_1"
+                },
+                {
+                    "currentState": "state_a",
+                    "nextState": "state_c",
+                    "actionName": "action_2"
+                },
+                {
+                    "currentState": "state_b",
+                    "nextState": "state_c",
+                    "actionName": "action_3"
+                }
+            ]
+        }
+    """
+
+
+@pytest.fixture(name="fsm")
+def fixture_fsm(fsm_json):
+    return CodeChallengeFsm(fsm_json)
+
+
+@pytest.fixture(name="fsm_data")
+def fixture_fsm_data(fsm_json):
+    return json.loads(fsm_json)
+
+
+def test_fsm_create_with_str(fsm_json):
+    fsm = CodeChallengeFsm(fsm_json)
+    assert fsm.get_current_state() == "state_a"
+
+
+def test_fsm_create_with_data(fsm_data):
+    fsm = CodeChallengeFsm(fsm_data)
+    assert fsm.get_current_state() == "state_a"
+
+
+def test_get_fsm_from_json(fsm_json):
+    fsm = get_fsm_from_json(fsm_json)
+    assert fsm.get_current_state() == "state_a"
+
+
+def test_get_fsm_from_json_file(fsm_json):
+    mock_open = mock.mock_open(read_data=fsm_json)
+    with mock.patch("builtins.open", mock_open):
+        fsm = get_fsm_from_json_file("mock-filename")
+        assert fsm.get_current_state() == "state_a"
+
+
+def test_perform_action_invalid(fsm):
+    with pytest.raises(FsmError):
+        fsm.perform_action("action_3")
+
+
+def test_perform_action_valid(fsm):
+    fsm.perform_action("action_1")
+    assert fsm.get_current_state() == "state_b"
+
+
+def test_get_valid_actions(fsm):
+    assert fsm.get_valid_actions() == ["action_1", "action_2"]

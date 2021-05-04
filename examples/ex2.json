@@ -1,0 +1,25 @@
+{
+    "start_state": "green",
+    "states": [
+        "green",
+        "yellow",
+        "red"
+    ],
+    "transitions": [
+        {
+            "action": "turn_yellow",
+            "from_state": "green",
+            "to_state": "yellow"
+        },
+        {
+            "action": "turn_red",
+            "from_state": "yellow",
+            "to_state": "red"
+        },
+        {
+            "action": "turn_green",
+            "from_state": "red",
+            "to_state": "green"
+        }
+    ]
+}

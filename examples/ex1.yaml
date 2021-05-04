@@ -1,0 +1,23 @@
+# example 1: library book state machine
+
+start_state: at_library
+
+states: [ at_library, with_customer, retired ]
+
+transitions:
+
+    -   action:     check_out
+        from_state: at_library
+        to_state:   with_customer
+
+    -   action:     check_in
+        from_state: with_customer
+        to_state:   at_library
+
+    -   action:     retire
+        from_state: at_library
+        to_state:   retired
+
+    -   action:     refurbish
+        from_state: retired
+        to_state:   at_library
