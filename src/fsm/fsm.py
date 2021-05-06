@@ -33,6 +33,7 @@ class Fsm:
     def __init__(
         self, model=None, states=None, transitions=None, start_state=None
     ):
+        self._start_state = start_state
         self._model = None
         self._states = {}
         self._transitions = {}
@@ -50,9 +51,9 @@ class Fsm:
         if transitions:
             self.add_transitions(transitions)
 
-        self.set_model(model, start_state)
+        self.set_model(model)
 
-    def set_model(self, model, start_state):
+    def set_model(self, model):
         """Associates a model object with this state machine.  
         
         On assignment all existing states and transitions will be associated
@@ -79,7 +80,7 @@ class Fsm:
                 self._add_transition_to_model(model, tran)
 
         self._model = model
-        self._set_state(start_state)
+        self._set_state(self._start_state)
 
     def _is_state(self, model, state_name):
         """Returns true if the model's state matches the state_name.
@@ -132,7 +133,6 @@ class Fsm:
         """Adds a transition. The transition parameter may be a Transition 
         object or valid transition data according to the Transition data 
         validator.  
-        
         """
         if not isinstance(transition, Transition):
             try:
@@ -164,6 +164,11 @@ class Fsm:
         """
         state = self._model.state if state is None else state
         return list(self._transitions.get(state, {}).keys())
+
+    @property
+    def actions(self):
+        """Returns list of available actions for the current state"""
+        return self.get_actions()
 
     def perform(self, action):
         """Performs an action to trigger a state transition. Raises FsmError
