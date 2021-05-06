@@ -87,6 +87,11 @@ def test_create_valid_states_only():
     assert fsm.get_state() == "s1"
 
 
+def test_create_invalid_transitions_non_iterable():
+    with pytest.raises(TypeError):
+        Fsm(states=["s1"], transitions="invalid", start_state="s1")
+
+
 def test_create_invalid_transitions_data():
     transitions = [{"action": "invalid"}]
     with pytest.raises(ValueError):
@@ -164,7 +169,7 @@ def test_add_transition(model):
         start_state="s1",
     )
     fsm.add_transition({"action": "a2", "from_state": "s2", "to_state": "s1"})
-    assert fsm.get_state_actions(state="s2") == ["a2"]
+    assert fsm.get_actions(state="s2") == ["a2"]
 
 
 def test_no_actions_for_state(model):
@@ -184,5 +189,5 @@ def test_get_valid_action_no_actions():
         transitions=[{"action": "a1", "from_state": "s2", "to_state": "s2"}],
         start_state="s1",
     )
-    assert fsm.get_state_actions(state="s1") == []
+    assert fsm.get_actions(state="s1") == []
 
