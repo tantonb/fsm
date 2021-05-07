@@ -19,7 +19,7 @@ $ pip install -r requirements.txt
 
 ## Usage
 
-The class `Fsm` implements a finite state machine that maintains a `state` on a target `model` object and allows `transitions` from one state to another via triggering `actions`.  It is designed to be associated with a separate `model` object, although it function just as well as a standalone state machine (using itself as the model).
+The class `Fsm` implements a finite state machine that maintains a `state` on a target `model` object and allows `transitions` from one state to another via triggering `actions`.  It is designed to be associated with a separate `model` object, although it functions just as well as a standalone state machine (using itself as the model).
 
 ### Example
 
