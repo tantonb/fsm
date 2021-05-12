@@ -1,7 +1,16 @@
 import voluptuous as vol
 
 # validation schema for State object initialization data
-STATE_SCHEMA = vol.Schema(str)
+STATE_SCHEMA = vol.Schema(
+    vol.Any(
+        str,
+        {
+            "name": str,
+            vol.Optional("on_enter"): vol.Any(str, [str]),
+            vol.Optional("on_exit"): vol.Any(str, [str]),
+        },
+    )
+)
 
 # validation schema for Transition object initialization data
 TRANSITION_SCHEMA = vol.Schema(

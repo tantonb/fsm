@@ -2,7 +2,12 @@ import pytest
 
 import voluptuous as vol
 
-from fsm import TRANSITION_SCHEMA
+from fsm import STATE_SCHEMA, TRANSITION_SCHEMA
+
+
+def test_state_schema_valid():
+    valid = {"name": "s1", "on_exit": "on_exit_str"}
+    STATE_SCHEMA(valid)
 
 
 def test_transition_schema_validation_invalid():

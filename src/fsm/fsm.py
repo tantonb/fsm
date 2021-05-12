@@ -6,8 +6,10 @@ model object to manage the model's state.
 from functools import partial
 
 from voluptuous import MultipleInvalid
+import yaml
+from yaml import Loader
 
-from fsm.schema import TRANSITION_SCHEMA
+from fsm.schema import FSM_SCHEMA, STATE_SCHEMA, TRANSITION_SCHEMA
 from fsm.state import State
 from fsm.transition import Transition
 
@@ -61,6 +63,8 @@ class Fsm:
 
         Models must allow attributes to be assigned to allow state, state
         functions and action functions to be set.
+
+        Model state are always initialized to the specified start state.
         """
 
         # fsm relies on being able to assign new attributes to the model,
@@ -72,7 +76,7 @@ class Fsm:
 
         # add state is_* methods to model
         for state in self._states.values():
-            self._add_state_to_model(model, state.name)
+            self._add_state_check_to_model(model, state.name)
 
         # add transition methods to model
         for actions in self._transitions.values():
@@ -88,7 +92,7 @@ class Fsm:
         """
         return getattr(model, "state", None) == state_name
 
-    def _add_state_to_model(self, model, state_name):
+    def _add_state_check_to_model(self, model, state_name):
         """Add state check method to model for the given state"""
         setattr(
             model,
@@ -100,15 +104,19 @@ class Fsm:
         """Adds a new state and adds is_<state> function to model."""
 
         # ensure state has type State (can convert from str name)
-        state = State(state) if isinstance(state, str) else state
-        if not isinstance(state, State):
-            raise TypeError(f"Invalid state type '{state}'")
+        if isinstance(state, str):
+            state = State(state)
+        elif not isinstance(state, State):
+            try:
+                state = State(**STATE_SCHEMA(state))
+            except MultipleInvalid:
+                raise ValueError("Invalid state data", state)
 
         self._states[state.name] = state
 
         # model may not be set yet...
         if self._model:
-            self._add_state_to_model(self._model, state.name)
+            self._add_state_check_to_model(self._model, state.name)
 
     def add_states(self, states):
         """Adds states from an iterable"""
@@ -117,17 +125,53 @@ class Fsm:
         for s in states:
             self.add_state(s)
 
+    def get_state(self):
+        """Retrieves the state object representing the current state 
+        in the model.
+        """
+        return self._states[self._model.state]
+
     def _set_state(self, state_name):
-        """Changes the machine state, sets the state in the model. Invalid
-        states will raise an FsmError exception.
+        """Sets the state in the model. Invalid states will raise an 
+        FsmError exception.  This can be used to set state without
+        triggering call backs (for example when initializing), see 
+        _change_state(). 
         """
         if not state_name in self._states:
             raise FsmError("Invalid state", state_name)
         setattr(self._model, "state", state_name)
 
-    def _add_transition_to_model(self, model, tran):
+    def _invoke_callable(self, target, c):
+        """Given a target object looks for a named callable.  If it exists
+        and is callable, calls it.
+        """
+        if hasattr(target, c):
+            c = getattr(target, c)
+            if callable(c):
+                c()
+
+    def _invoke_callables(self, target, callables):
+        for c in callables:
+            self._invoke_callable(target, c)
+
+    def _change_state(self, state_name):
+        """Changes state from one to another.  This will invoke any
+        callbacks associated with the states (on_exit, on_enter).
+        """
+        # capture from_state befor the change
+        exit_state = self.get_state()
+        self._set_state(state_name)
+        enter_state = self.get_state()
+
+        # invoke call backs if defined
+        self._invoke_callables(self._model, exit_state.on_exit)
+        self._invoke_callables(self._model, enter_state.on_enter)
+
+    def _add_transition_to_model(self, model, transition):
         """Add action function to trigger state transition in the model"""
-        setattr(model, tran.action, partial(self.perform, tran.action))
+        setattr(
+            model, transition.action, partial(self.perform, transition.action)
+        )
 
     def add_transition(self, transition):
         """Adds a transition. The transition parameter may be a Transition 
@@ -189,7 +233,7 @@ class Fsm:
             )
 
         # change state
-        self._set_state(transition.to_state)
+        self._change_state(transition.to_state)
 
         # user feedback
         print(
@@ -197,6 +241,21 @@ class Fsm:
             f" '{transition.from_state}' to '{transition.to_state}'"
         )
 
-    def get_state(self):
-        """Fetches the current state from the model"""
-        return self._model.state
+
+def create_fsm(model=None, data=None, doc=None, filename=None):
+    """Generate state machine using provided initialization data"""
+
+    if filename:
+        with open(filename) as fin:
+            doc = fin.read()
+
+    # fsm configuration can be encoded in yaml (or json)
+    if doc:
+        data = yaml.load(doc, Loader=Loader)
+
+    if not data:
+        raise ValueError("No data provided for Fsm configuration")
+
+    data = FSM_SCHEMA(data)
+    data["model"] = model
+    return Fsm(**data)

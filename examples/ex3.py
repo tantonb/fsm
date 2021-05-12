@@ -1,5 +1,5 @@
 doc = """
-# a book
+# a simple book
 start_state: closed
 
 states: [closed, page1, page2]
