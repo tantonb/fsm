@@ -19,89 +19,126 @@ $ pip install -r requirements.txt
 
 ## Usage
 
-The class `Fsm` implements a finite state machine that maintains a `state` on a target `model` object and allows `transitions` from one state to another via triggering `actions`.  It is designed to be associated with a separate `model` object, although it functions just as well as a standalone state machine (using itself as the model).
+The class `Fsm` implements a finite state machine that maintains a `state` on a target `model` object and allows `transitions` from one state to another via triggering `actions`.  It is designed to be associated with a separate `model` object, although it can function as a standalone state machine (using itself as the model).  `Fsm` also supports callbacks, which is where things get a little more interesting.  Each `state` may call any number of `on_exit` and `on_enter` callback methods on the model which are triggered as the state changes during transitions.  Similarly, callbacks may be registered on transitions under `on_before` and `on_after` and will trigger when an action is performed that triggers a transition (even if state does not change).  The order of callbacks would be `[on_before]`, `[on_exit]`, `[on_enter]`, `[on_after]`.
 
 ### Example
 
-Fsm machines can be instantiated in several ways.  Here's a quick example using the REPL:
+Fsm machines can be instantiated in several ways.  Here's a quick example based on the model class defined in `examples/ex4.py`:
 
 ```python
->>> from fsm import from_yaml
->>> # fsm can load configuration from yaml or json documents
->>> # and also from files containing docs
->>> fsm = from_yaml("""
-... # a book
-... start_state: closed
-... 
-... states: [closed, page1, page2]
-... 
-... transitions:
-... 
-...     - action:       open
-...       from_state:   closed
-...       to_state:     page1
-... 
-...     - action:       forward
-...       from_state:   page1
-...       to_state:     page2
-... 
-...     - action:       back
-...       from_state:   page2
-...       to_state:     page1
-... 
-...     - action:       close
-...       from_state:   page1
-...       to_state:     closed
-... 
-...     - action:       close
-...       from_state:   page2
-...       to_state:     closed
-... """
-... )
->>> # fsm here is in standalone mode, no associated model
->>> # so state machine is self-contained
->>> fsm.get_state()
-'closed'
->>> fsm.state
-'closed'
->>> fsm.is_closed()
-True
->>> fsm.get_actions()
-['open']
->>> fsm.perform("open")
-Action 'open' performed, state transitioned from 'closed' to 'page1'
->>> fsm.is_page1()
-True
->>> fsm.is_closed()
-False
->>> fsm.get_actions()
-['forward', 'close']
->>> fsm.forward()
-Action 'forward' performed, state transitioned from 'page1' to 'page2'
->>> fsm.get_actions()
-['back', 'close']
->>> fsm.close()
-Action 'close' performed, state transitioned from 'page2' to 'closed'
->>> fsm.is_closed()
-True
->>> # a model can be associated with the fsm at any time
->>> class Book: pass
-...
+# a class defining a book model with several callback methods
+class Book:
+    def __init__(self, page_count=3):
+        self._page_count = page_count
+        self._page_num = 1
+        self._is_open = False
+
+    def on_open(self):
+        self._is_open = True
+        self.show_status()
+
+    def on_close(self):
+        self._is_open = False
+        self.show_status()
+
+    def on_forward(self):
+        if self._page_num < self._page_count:
+            self._page_num += 1
+        else:
+            print("Already on last page.")
+        self.show_status()
+
+    def on_back(self):
+        if self._page_num > 1:
+            self._page_num -= 1
+        else:
+            print("Already on first page.")
+        self.show_status()
+
+    def show_status(self):
+        if self._is_open:
+            print("The book is open to page", self._page_num)
+        else:
+            print("The book is closed.")
+```
+This class defines a number of callbacks that can be registered with states and transitions in a state machine:
+
+```bash
+>>> # fsm can load from yaml or json docs or files containing them
+>>> from fsm import create_fsm
+>>> from ex4 import Book
 >>> book = Book()
->>> fsm.set_model(book)
->>> # now the model contains state and functionality
+>>> fsm = create_fsm(
+...     doc="""
+...         # a book with callbacks
+...         start_state: closed
+... 
+...         states: 
+...             - name: closed
+...               on_enter: on_close
+... 
+...             - name: opened
+...               on_enter: on_open
+... 
+... 
+...         transitions:
+... 
+...             - action:       open
+...               from_state:   closed
+...               to_state:     opened
+... 
+...             - action:       forward
+...               from_state:   opened
+...               to_state:     opened
+...               on_before:    on_forward
+... 
+...             - action:       back
+...               from_state:   opened
+...               to_state:     opened
+...               on_before:    on_back
+... 
+...             - action:       close
+...               from_state:   opened
+...               to_state:     closed
+...         """,
+...     model=book,
+...     feedback=False,
+... )
+>>> # now we have a machine associated with our book model
+>>> # we've also disabled default user feedback
 >>> book.state
 'closed'
->>> fsm.get_actions()
-['open']
+>>> # state flags have been generated on the model
 >>> book.is_closed()
 True
+>>> # the state machine can tell us current available actions
+>>> fsm.get_actions()
+['open']
+>>> # open() will trigger on_open() in the model
+>>> book.is_opened()
+False
 >>> book.open()
-Action 'open' performed, state transitioned from 'closed' to 'page1'
->>> book.state
-'page1'
->>> fsm.get_state()
-'page1'
+The book is open to page 1
+>>> book.is_opened()
+True
+>>> fsm.get_actions()
+['forward', 'back', 'close']
+>>> # calling forward and back will trigger the transition callbacks
+>>> book.forward()
+The book is open to page 2
+>>> book.forward()
+The book is open to page 3
+>>> book.back()
+The book is open to page 2
+>>> book.close()
+The book is closed.
+>>> # invalid actions will raise FsmError
+>>> book.back()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/tyler/projects/fsm/src/fsm/fsm.py", line 228, in perform
+    raise FsmError(
+fsm.fsm.FsmError: Cannot perform action 'back' in state 'closed'
 ```
 
 ## Testing

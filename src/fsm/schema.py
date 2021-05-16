@@ -1,13 +1,15 @@
 import voluptuous as vol
 
+CB_SCHEMA = vol.Schema(vol.Any(str, [str]))
+
 # validation schema for State object initialization data
 STATE_SCHEMA = vol.Schema(
     vol.Any(
         str,
         {
             "name": str,
-            vol.Optional("on_enter"): vol.Any(str, [str]),
-            vol.Optional("on_exit"): vol.Any(str, [str]),
+            vol.Optional("on_enter"): CB_SCHEMA,
+            vol.Optional("on_exit"): CB_SCHEMA,
         },
     )
 )
@@ -18,6 +20,8 @@ TRANSITION_SCHEMA = vol.Schema(
         vol.Required("action"): str,
         vol.Required("from_state"): str,
         vol.Required("to_state"): str,
+        vol.Optional("on_before"): CB_SCHEMA,
+        vol.Optional("on_after"): CB_SCHEMA,
     }
 )
 

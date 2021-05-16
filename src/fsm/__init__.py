@@ -7,7 +7,7 @@ __uri__ = "https://github.com/tantonb/fsm"
 
 from fsm.fsm import Fsm, FsmError, create_fsm
 
-from fsm.schema import STATE_SCHEMA, TRANSITION_SCHEMA, FSM_SCHEMA
+from fsm.schema import CB_SCHEMA, STATE_SCHEMA, TRANSITION_SCHEMA, FSM_SCHEMA
 
 from fsm.state import State
 

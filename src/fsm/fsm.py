@@ -33,12 +33,18 @@ class Fsm:
     """
 
     def __init__(
-        self, model=None, states=None, transitions=None, start_state=None
+        self,
+        model=None,
+        states=None,
+        transitions=None,
+        start_state=None,
+        feedback=True,
     ):
         self._start_state = start_state
         self._model = None
         self._states = {}
         self._transitions = {}
+        self._feedback = feedback
 
         # for now explicit start state is required
         # but might be auto generated in the future
@@ -135,25 +141,28 @@ class Fsm:
         """Sets the state in the model. Invalid states will raise an 
         FsmError exception.  This can be used to set state without
         triggering call backs (for example when initializing), see 
-        _change_state(). 
+        _change_state().  Returns new State object.
         """
         if not state_name in self._states:
             raise FsmError("Invalid state", state_name)
         setattr(self._model, "state", state_name)
+        return self._states[state_name]
 
-    def _change_state(self, state_name):
+    def _change_state(self, new_state):
         """Changes state from one to another.  This will invoke any
-        callbacks associated with the states (on_exit, on_enter).
+        callbacks associated with the states (on_exit, on_enter) if
+        the state is changed.
         """
-        # capture from_state befor the change
-        exit_state = self.get_state()
-        self._set_state(state_name)
-        enter_state = self.get_state()
 
-        # invoke call backs if defined
-        if enter_state != exit_state:
-            exit_state.on_exit.call_on(self._model)
-            enter_state.on_enter.call_on(self._model)
+        # make sure state is actually changing
+        cur_state = self.get_state()
+        if cur_state.name == new_state:
+            return
+
+        # exit/enter callbacks made as state changes
+        cur_state.on_exit.call_on(self._model)
+        cur_state = self._set_state(new_state)
+        cur_state.on_enter.call_on(self._model)
 
     def _add_transition_to_model(self, model, transition):
         """Add action function to trigger state transition in the model"""
@@ -226,13 +235,14 @@ class Fsm:
         transition.on_after.call_on(self._model)
 
         # user feedback
-        print(
-            f"Action '{action}' performed, state transitioned from"
-            f" '{transition.from_state}' to '{transition.to_state}'"
-        )
+        if self._feedback:
+            print(
+                f"Action '{action}' performed, state transitioned from"
+                f" '{transition.from_state}' to '{transition.to_state}'"
+            )
 
 
-def create_fsm(model=None, data=None, doc=None, filename=None):
+def create_fsm(data=None, doc=None, filename=None, **kwargs):
     """Generate state machine using provided initialization data"""
 
     if filename:
@@ -247,5 +257,5 @@ def create_fsm(model=None, data=None, doc=None, filename=None):
         raise ValueError("No data provided for Fsm configuration")
 
     data = FSM_SCHEMA(data)
-    data["model"] = model
+    data.update(kwargs)
     return Fsm(**data)
