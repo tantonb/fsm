@@ -24,6 +24,9 @@ def fixture_fsm_doc():
             - action: a1
               from_state: s1
               to_state: s2
+            - action: a2
+              from_state: s1
+              to_state: s1
     """
 
 
@@ -141,7 +144,7 @@ def test_transition_with_action_function_on_model(model):
 
 def test_actions_property(fsm_data):
     fsm = create_fsm(data=fsm_data)
-    assert fsm.actions == ["a1"]
+    assert fsm.actions == ["a1", "a2"]
 
 
 def test_add_state_after_create(model):
@@ -236,12 +239,21 @@ def test_create_fsm_from_json(model):
     """
     fsm = create_fsm(model=model, doc=doc)
     assert isinstance(fsm, Fsm)
-    assert model.state == "s1"  # pylint: disable=maybe-no-member
+    # pylint: disable=maybe-no-member
+    assert model.state == "s1"
     assert model.cb_count == 0
-    model.a1()  # pylint: disable=maybe-no-member
+    model.a1()
     assert model.cb_count == 1
 
 
 def test_create_fsm_no_data():
     with pytest.raises(ValueError):
         create_fsm()
+
+
+def test_transition_with_no_state_change(fsm_doc):
+    # pylint: disable=maybe-no-member
+    fsm = create_fsm(doc=fsm_doc)
+    assert fsm.state == "s1"
+    fsm.a2()
+    assert fsm.state == "s1"
