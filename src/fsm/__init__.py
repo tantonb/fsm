@@ -12,12 +12,3 @@ from fsm.schema import STATE_SCHEMA, TRANSITION_SCHEMA, FSM_SCHEMA
 from fsm.state import State
 
 from fsm.transition import Transition
-
-"""
-from fsm.util import (
-    from_json,
-    from_yaml,
-    from_json_file,
-    from_yaml_file,
-)
-"""

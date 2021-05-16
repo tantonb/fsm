@@ -141,19 +141,6 @@ class Fsm:
             raise FsmError("Invalid state", state_name)
         setattr(self._model, "state", state_name)
 
-    def _invoke_callable(self, target, c):
-        """Given a target object looks for a named callable.  If it exists
-        and is callable, calls it.
-        """
-        if hasattr(target, c):
-            c = getattr(target, c)
-            if callable(c):
-                c()
-
-    def _invoke_callables(self, target, callables):
-        for c in callables:
-            self._invoke_callable(target, c)
-
     def _change_state(self, state_name):
         """Changes state from one to another.  This will invoke any
         callbacks associated with the states (on_exit, on_enter).
@@ -164,8 +151,9 @@ class Fsm:
         enter_state = self.get_state()
 
         # invoke call backs if defined
-        self._invoke_callables(self._model, exit_state.on_exit)
-        self._invoke_callables(self._model, enter_state.on_enter)
+        if enter_state != exit_state:
+            exit_state.on_exit.call_on(self._model)
+            enter_state.on_enter.call_on(self._model)
 
     def _add_transition_to_model(self, model, transition):
         """Add action function to trigger state transition in the model"""
@@ -233,7 +221,9 @@ class Fsm:
             )
 
         # change state
+        transition.on_before.call_on(self._model)
         self._change_state(transition.to_state)
+        transition.on_after.call_on(self._model)
 
         # user feedback
         print(
