@@ -1,4 +1,4 @@
-"""Test kincode.fsm"""
+"""Test fsm"""
 from unittest import mock
 
 import pytest
